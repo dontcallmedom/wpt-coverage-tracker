@@ -46,7 +46,7 @@ const logger = name => {
         if (interfaces.includes(idlName)) {
           return op(value, idlName);
         } else if (idlData.idlNames[idlName].type === "dictionary") {
-          return op(Object.fromEntries(Object.entries(value).map(([k, v]) => {
+          return op(Object.fromEntries(Object.entries(value.___unwrap ? value.___unwrap : value).map(([k, v]) => {
             const field = idlData.idlNames[idlName].members.find(m => m.name === k);
             return field ? [k, self(v, field.idlType)] : [k,v];
           })), idlName);
@@ -65,14 +65,22 @@ const logger = name => {
     if (!idlType || !value) {
       return;
     }
-    if (idlNames.includes(idlType.idlType)) {
+    if (idlType.generic === "sequence") {
+      if (Array.isArray(value)) {
+        value.map(v => logDictionaryFields(v, idlType.idlType[0]));
+      }
+      return;
+    } else if (idlNames.includes(idlType.idlType)) {
       const idlName = idlType.idlType;
       if (idlData.idlNames[idlName].type === "dictionary") {
-        const dict = wrapValue(value, idlType);
+        const dict = wrapValue({}, idlType);
         Object.entries(value).forEach(([k, v]) => {
           const field = idlData.idlNames[idlName].members.find(m => m.name === k);
           if (field) {
-            dict[k] = logDictionaryFields(v, field.idlType);
+            // exercise the setter to increase the counter
+            // and recursively handle sub-dictionaries
+            dict[k] = true;
+            logDictionaryFields(v, field.idlType);
           }
         });
       }
@@ -81,7 +89,11 @@ const logger = name => {
   }
 
   function wrapValue(value, idlType) {
+    if (value === undefined) return undefined;
+    // Avoid double wrapping
+    if (value.___unwrap) return value;
     const wrapped = walkIdlTypes((obj, idlName) => {
+      if (obj.___unwrap) return obj;
       const proxy = new Proxy(obj, logger(idlName));
       Object.defineProperty(proxy, "___unwrap", {
         value: obj,
@@ -122,7 +134,8 @@ const logger = name => {
       if (!idlProp) {
         return Reflect.set(...arguments);
       }
-      log(propKey);
+      // FIXME: this shouldn't be possible yet it is
+      if (!target.___unwrap) log(propKey);
       if (propKey.startsWith("on")) { // TODO: only if type is EventHandler?
         // TODO: events are probably worth tracking independently of EventHandler attributes
         // so maybe we should trap addEventListener where relevant
