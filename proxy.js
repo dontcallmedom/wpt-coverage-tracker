@@ -114,6 +114,9 @@ const logger = name => {
     // TODO: deal with overloaded operations
     const idlArguments = idlData.idlNames[interface].members.find(m => (operation === "constructor" ? m.type === "constructor" : m.name === operation)).arguments;
     return args.map((arg,i) => {
+      if (!idlArguments[i]) {
+        return arg;
+      }
       const idlType = idlArguments[i].idlType;
       // count dictionaries / enums usage
       logDictionaryFields(arg, idlType);
@@ -137,8 +140,6 @@ const logger = name => {
       // FIXME: this shouldn't be possible yet it is
       if (!target.___unwrap) log(propKey);
       if (propKey.startsWith("on")) { // TODO: only if type is EventHandler?
-        // TODO: events are probably worth tracking independently of EventHandler attributes
-        // so maybe we should trap addEventListener where relevant
         target.addEventListener(propKey.slice(2), value);
         return true;
       }
@@ -149,24 +150,43 @@ const logger = name => {
       return Reflect.ownKeys(target);
     },
     get(target, propKey, receiver) {
-      const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
-      // only track items defined in the IDL fragment
-      if (!idlProp) {
-        return Reflect.get(...arguments);
-      }
       if (propKey === "___unwrap") {
         return target;
       }
-      // trace via new Error().stack?
       const val = target[propKey];
+      const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
+      // only track items defined in the IDL fragment
+      if (!idlProp) {
+        if (typeof val !== 'function') {
+          return Reflect.get(...arguments);
+        }
+        return function(...args) {
+          const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
+          // if we inherit from EventTarget
+          // and if there are locally defined event handlers
+          // we don't track addEventListener,
+          // but we want to track eventhandlers called that way
+          // this assumes that https://w3ctag.github.io/design-principles/#always-add-event-handlers is respected (i.e. matching on* attributes exist)
+          if (propKey === "addEventListener"
+              && interfaces.includes(name)
+              // TODO deal with mulitple level of inheritance?
+              && idlData.idlNames[name].inheritance === "EventTarget"
+              && idlData.idlNames[name].members.some(m => m.idlType && m.idlType.idlType === "EventHandler")) {
+            log("on" + args[0]);
+          }
+          return Reflect.apply(val, thisVal, args);
+        };
+      }
+      // trace via new Error().stack?
       if(typeof val !== 'function') {
         log(propKey.toString());
         return wrapValue(val, idlProp.idlType);
       }
       return function(...args) {
+        const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
         log(propKey.toString(), ...args);
-        var thisVal = this === receiver ? target : this; /* Unwrap the proxy */
-        const obj = Reflect.apply(val, thisVal, handleArguments(args, name, propKey));
+        const unwrappedArgs = handleArguments(args, name, propKey);
+        const obj = Reflect.apply(val, thisVal, unwrappedArgs);
         return wrapValue(obj, idlProp.idlType);
       };
     }
