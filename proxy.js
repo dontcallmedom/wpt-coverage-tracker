@@ -46,7 +46,10 @@ const logger = name => {
         if (interfaces.includes(idlName)) {
           return op(value, idlName);
         } else if (idlData.idlNames[idlName].type === "dictionary") {
-          return op(Object.fromEntries(Object.entries(value.___unwrap ? value.___unwrap : value).map(([k, v]) => {
+          // Dealing with interfaces cast as dictionaries
+          const unwrapped = value.___unwrap ? value.___unwrap : value;
+          const entries = unwrapped.toJSON ? unwrapped.toJSON() : unwrapped;
+          return op(Object.fromEntries(Object.entries(entries).map(([k, v]) => {
             const field = idlData.idlNames[idlName].members.find(m => m.name === k);
             return field ? [k, self(v, field.idlType)] : [k,v];
           })), idlName);
