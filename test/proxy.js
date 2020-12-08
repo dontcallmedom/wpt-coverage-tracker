@@ -14,7 +14,7 @@ const baseResult = {
   "RTCPeerConnection": { "_constructor": 1 }
 };
 
-const baseIdl = `interface RTCPeerConnection {
+const baseIdl = `interface RTCPeerConnection : EventTarget {
   constructor(optional RTCConfiguration config);
 };`
 
@@ -75,6 +75,42 @@ pc.getConfiguration().iceServers[0].username;
       "RTCIceServer": {"username": 2}
     }
   },
+  {
+    title: 'tracks dictionaries in arguments to regular methods',
+    idl: addToBaseInterface(`    RTCRtpTransceiver addTransceiver((MediaStreamTrack or DOMString) trackOrKind, optional RTCRtpTransceiverInit init = {}); `) + `
+[Exposed=Window] interface RTCRtpTransceiver {};
+dictionary RTCRtpTransceiverInit {   sequence<MediaStream> streams = []; };`,
+    js: `
+const pc = new RTCPeerConnection();
+const ctx = new AudioContext();
+const oscillator = ctx.createOscillator();
+const dst = oscillator.connect(ctx.createMediaStreamDestination());
+oscillator.start();
+const stream = dst.stream.getAudioTracks()[0];
+pc.addTransceiver('audio', {streams: [stream]});
+`,
+    results: {
+      "RTCPeerConnection": { "_constructor": 1, "addTransceiver": 1 },
+      "RTCRtpTransceiver": {},
+      "RTCRtpTransceiverInit": {"streams": 1}
+    }
+  },
+  {
+    title: 'tracks event handlers triggered by addEventListener',
+    idl: addToBaseInterface(`attribute EventHandler onconnectionstatechange;
+  undefined close();
+`),
+    js: `
+const pc = new RTCPeerConnection();
+pc.addEventListener('connectionstatechange', () => {});
+pc.close();`,
+    results: {
+      "RTCPeerConnection": { "_constructor": 1, "onconnectionstatechange": 1, "close": 1 },
+    }
+  }
+  // TODO: enums
+  // TODO: partial interfaces
+  // TODO: mixins
 ];
 
 describe('puppeteer', () => {
