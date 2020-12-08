@@ -14,9 +14,15 @@ async function getNewPage(debug) {
 async function runOnLinkedPages(url, shortname, debug =false) {
   const page = await getNewPage(debug);
   await page.goto(url, {waitUntil: 'domcontentloaded'});
-  const urls = (await page.evaluate('[...document.querySelectorAll("a[href]")].map(a => a.href)')).filter(u => u.endsWith('.html'));
-  console.log(urls);
-  const resultList = await Promise.all(urls.map(u => runWithProxy(u, shortname, debug, true)));
+  const urls = (await page.evaluate('[...document.querySelectorAll("a[href]")].map(a => a.href)'))
+        // make this configurable?
+        .filter(u => u.endsWith('.html'));
+  const resultList = await Promise.all(
+    urls.map(u =>
+             runWithProxy(u, shortname, debug, true)
+             .catch(e => { console.error("Error processing " + u + ": " + e); return {};})
+            )
+  );
   const results = resultList.reduce((acc, res) => {
     Object.entries(res).forEach(([k, v]) => {
       if (!acc[k]) acc[k] = {};
