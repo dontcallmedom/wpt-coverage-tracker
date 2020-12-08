@@ -1,3 +1,32 @@
+// Incorporate extensions into the main idlData.idlNames object
+// First, merge partial interfaces
+Object.keys(idlData.idlExtendedNames || {}).forEach(name => {
+  const idlExtensions = idlData.idlExtendedNames[name].filter(o => o.partial);
+  if (!idlData.idlNames[name]) {
+    // We seed the entry with the first partial
+    idlData.idlNames[name] = idlExtensions.shift();
+  }
+  // we merge all the partial members in the main entry
+  idlExtensions.forEach(ext => {
+      idlData.idlNames[name].members = idlData.idlNames[name].members.concat(ext.members);
+  });
+});
+// Then bring-in mixins
+Object.keys(idlData.idlExtendedNames || {}).forEach(name => {
+  const idlExtensions = idlData.idlExtendedNames[name].filter(o => o.includes);
+  if (!idlData.idlNames[name]) {
+    idlData.idlNames[name] = {
+      type: "interface",
+      members: []
+    };
+  }
+  idlExtensions.forEach(ext => {
+    const mixin = idlData.idlNames[ext.includes];
+    if (mixin) {
+      idlData.idlNames[name].members = idlData.idlNames[name].members.concat(mixin.members);
+    }
+  });
+});
 
 const idlNames = Object.keys(idlData.idlNames || {});
 const interfaces = idlNames.filter(i => idlData.idlNames[i].type === "interface");
