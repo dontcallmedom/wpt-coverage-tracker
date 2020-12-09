@@ -82,7 +82,8 @@ async function runOnLinkedPages(url, shortname, debug =false) {
   await page.goto(url, {waitUntil: 'domcontentloaded'});
   const urls = (await page.evaluate('[...document.querySelectorAll("a[href]")].map(a => a.href)'))
         // make this configurable?
-        .filter(u => u.endsWith('.html'));
+        .filter(u => u.endsWith('.html') || u.endsWith('.window.js'))
+        .map(u => u.endsWith('.js') ? u.replace(/\.js$/, '.html') : u);
   page.close();
   let resultList = [];
   for (let u of urls) {
