@@ -1,3 +1,4 @@
+// TODO: move out of proxy?
 // Incorporate extensions into the main idlData.idlNames object
 // First, merge partial interfaces
 Object.keys(idlData.idlExtendedNames || {}).forEach(name => {
@@ -77,7 +78,7 @@ const logger = name => {
         } else if (idlData.idlNames[idlName].type === "dictionary") {
           // Dealing with interfaces cast as dictionaries
           const unwrapped = value.___unwrap ? value.___unwrap : value;
-          const entries = unwrapped.toJSON ? unwrapped.toJSON() : unwrapped;
+          const entries = unwrapped.toJSON ? value.toJSON() : unwrapped;
           return op(Object.fromEntries(Object.entries(entries).map(([k, v]) => {
             const field = idlData.idlNames[idlName].members.find(m => m.name === k);
             return field ? [k, self(v, field.idlType)] : [k,v];
@@ -190,7 +191,7 @@ const logger = name => {
       // only track items defined in the IDL fragment
       if (!idlProp) {
         if (typeof val !== 'function') {
-          return Reflect.get(...arguments);
+          return val;
         }
         return function(...args) {
           const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
@@ -226,6 +227,7 @@ const logger = name => {
 };
 
 for (let i of interfaces) {
+  if (!window[i]) continue;
   Object.defineProperty(___orig, i, {
     value: window[i],
     enumerable: false,
