@@ -125,6 +125,24 @@ pc.close();`,
         data: 1
       }
     }
+  },
+  {
+    title: 'track enum values usage',
+    idl: addToBaseInterface('readonly attribute RTCSignalingState signalingState;') + `
+enum RTCSignalingState {
+  "stable"};
+`,
+    js: `const pc = new RTCPeerConnection();
+pc.signalingState;`,
+    results: {
+      RTCPeerConnection: {
+        _constructor: 1,
+        signalingState: 1
+      },
+      RTCSignalingState: {
+        stable: 1
+      }
+    }
   }
   // TODO: enums
   // TODO: partial interfaces
@@ -138,7 +156,8 @@ describe('puppeteer', () => {
       const puppeteer = proxyquire('../puppeteer.js', {
         'node-fetch': mockFetchIdlData(t.idl)
       });
-      const {results} = await puppeteer.runWithProxy(url, 'shortname', process.env.DEBUG);
+      const {results, errors} = await puppeteer.runWithProxy(url, 'shortname', process.env.DEBUG);
+      assert.deepEqual(errors, []);
       assert.deepEqual(results, t.results);
     });
   });

@@ -36,12 +36,11 @@ var ___tracker = Object
     .fromEntries(
       // TODO: extended names
       idlNames
-      // TODO: enums
-        .filter(n => idlData.idlNames[n].members)
+        .filter(n => idlData.idlNames[n].members || idlData.idlNames[n].values)
         .map(n => {
-          const members = idlData.idlNames[n].members;
+          const members = idlData.idlNames[n].members || idlData.idlNames[n].values;
           return [n, Object.fromEntries(members.map(m => {
-            const name = m.type === 'constructor' ? '_constructor' : m.name;
+            const name = m.value ? m.value : (m.type === 'constructor' ? '_constructor' : m.name);
             return [name, 0];
           }))];
         }));
@@ -84,6 +83,8 @@ const logger = name => {
             const field = idlData.idlNames[idlName].members.find(m => m.name === k);
             return field ? [k, self(v, field.idlType)] : [k,v];
           })), idlName);
+        } else if (idlData.idlNames[idlName].type === "enum") {
+          op(value, idlName);
         } else {
           return value;
         }
@@ -128,6 +129,12 @@ const logger = name => {
     if (value && value.___unwrap) return value;
     const wrapped = walkIdlTypes((obj, idlName) => {
       if (obj && obj.___unwrap) return obj;
+      // we assume this is an enum
+      if (typeof obj === "string" && idlName) {
+        // FIXME
+        ___tracker[idlName][obj] += 1;
+        return obj;
+      }
       const proxy = new Proxy(obj, logger(idlName));
       Object.defineProperty(proxy, "___unwrap", {
         value: obj,
