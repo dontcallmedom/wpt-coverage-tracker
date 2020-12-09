@@ -31,6 +31,7 @@ Object.keys(idlData.idlExtendedNames || {}).forEach(name => {
 
 const idlNames = Object.keys(idlData.idlNames || {});
 const interfaces = idlNames.filter(i => idlData.idlNames[i].type === "interface");
+var ___errors = [];
 var ___tracker = Object
     .fromEntries(
       // TODO: extended names
@@ -124,9 +125,9 @@ const logger = name => {
   function wrapValue(value, idlType) {
     if (value === undefined) return undefined;
     // Avoid double wrapping
-    if (value.___unwrap) return value;
+    if (value && value.___unwrap) return value;
     const wrapped = walkIdlTypes((obj, idlName) => {
-      if (obj.___unwrap) return obj;
+      if (obj && obj.___unwrap) return obj;
       const proxy = new Proxy(obj, logger(idlName));
       Object.defineProperty(proxy, "___unwrap", {
         value: obj,
@@ -140,7 +141,7 @@ const logger = name => {
   }
 
   function unwrapValue(value, idlType) {
-    return walkIdlTypes(v => v.___unwrap ? v.___unwrap : v)(value, idlType);
+    return walkIdlTypes(v => v && v.___unwrap ? v.___unwrap : v)(value, idlType);
   }
 
   function handleArguments(args, interface, operation) {
@@ -160,69 +161,82 @@ const logger = name => {
 
   return {
     construct(target, args) {
-      log("constructor");
-      let obj;
-      obj = new target(...handleArguments(args, name, "constructor"));
-      return new Proxy(obj, logger(name));
+      try {
+        log("constructor");
+        let obj;
+        obj = new target(...handleArguments(args, name, "constructor"));
+        return new Proxy(obj, logger(name));
+      } catch (e) {
+        ___errors.push(`Proxy error when trying to construct ${name}: ${e}`);
+        return new target(...args);
+      }
     },
     set(target, propKey, value) {
-      const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
-      if (!idlProp) {
+      try {
+        const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
+        if (!idlProp) {
+          return Reflect.set(...arguments);
+        }
+        // FIXME: this shouldn't be possible yet it is
+        if (target && !target.___unwrap) log(propKey);
+        if (propKey.startsWith("on")) { // TODO: only if type is EventHandler?
+          target.addEventListener(propKey.slice(2), value);
+          return true;
+        }
+        log(propKey);
+        return Reflect.set(...arguments);
+      } catch (e) {
+        ___errors.push(`Proxy error when trying to set ${propKey} on ${name}: ${e}`);
         return Reflect.set(...arguments);
       }
-      // FIXME: this shouldn't be possible yet it is
-      if (!target.___unwrap) log(propKey);
-      if (propKey.startsWith("on")) { // TODO: only if type is EventHandler?
-        target.addEventListener(propKey.slice(2), value);
-        return true;
-      }
-      log(propKey);
-      return Reflect.set(...arguments);
-    },
-    ownKeys(target) {
-      return Reflect.ownKeys(target);
     },
     get(target, propKey, receiver) {
-      if (propKey === "___unwrap") {
-        return target;
-      }
-      const val = target[propKey];
-      const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
-      // only track items defined in the IDL fragment
-      if (!idlProp) {
-        if (typeof val !== 'function') {
-          return val;
+      try {
+        if (propKey === "___unwrap") {
+          return target;
+        }
+        const val = target[propKey];
+        const idlProp = idlData.idlNames[name].members.find(m => m.name === propKey);
+        // only track items defined in the IDL fragment
+        if (!idlProp) {
+          if (typeof val !== 'function') {
+            return val;
+          }
+          return function(...args) {
+            const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
+            // if we inherit from EventTarget
+            // and if there are locally defined event handlers
+            // we don't track addEventListener,
+            // but we want to track eventhandlers called that way
+            // this assumes that https://w3ctag.github.io/design-principles/#always-add-event-handlers is respected (i.e. matching on* attributes exist)
+            if (propKey === "addEventListener"
+                && interfaces.includes(name)
+                // TODO deal with mulitple level of inheritance?
+                && idlData.idlNames[name].inheritance === "EventTarget"
+                && idlData.idlNames[name].members.some(m => m.idlType && m.idlType.idlType === "EventHandler")) {
+              log("on" + args[0]);
+            }
+            return Reflect.apply(val, thisVal, args);
+          };
+        }
+        // trace via new Error().stack?
+        if(typeof val !== 'function') {
+          log(propKey.toString());
+          return wrapValue(val, idlProp.idlType);
         }
         return function(...args) {
           const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
-          // if we inherit from EventTarget
-          // and if there are locally defined event handlers
-          // we don't track addEventListener,
-          // but we want to track eventhandlers called that way
-          // this assumes that https://w3ctag.github.io/design-principles/#always-add-event-handlers is respected (i.e. matching on* attributes exist)
-          if (propKey === "addEventListener"
-              && interfaces.includes(name)
-              // TODO deal with mulitple level of inheritance?
-              && idlData.idlNames[name].inheritance === "EventTarget"
-              && idlData.idlNames[name].members.some(m => m.idlType && m.idlType.idlType === "EventHandler")) {
-            log("on" + args[0]);
-          }
-          return Reflect.apply(val, thisVal, args);
+          log(propKey.toString(), ...args);
+          const unwrappedArgs = handleArguments(args, name, propKey);
+          const obj = Reflect.apply(val, thisVal, unwrappedArgs);
+          return wrapValue(obj, idlProp.idlType);
         };
+      } catch (e) {
+        ___errors.push(`Proxy error when trying to get ${propKey} on ${name}: ${e}`);
+        return Reflect.get(...arguments);
       }
-      // trace via new Error().stack?
-      if(typeof val !== 'function') {
-        log(propKey.toString());
-        return wrapValue(val, idlProp.idlType);
+
       }
-      return function(...args) {
-        const thisVal = this === receiver ? target : this; /* Unwrap the proxy */
-        log(propKey.toString(), ...args);
-        const unwrappedArgs = handleArguments(args, name, propKey);
-        const obj = Reflect.apply(val, thisVal, unwrappedArgs);
-        return wrapValue(obj, idlProp.idlType);
-      };
-    }
   };
 };
 

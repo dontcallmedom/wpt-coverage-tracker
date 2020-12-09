@@ -134,12 +134,12 @@ pc.close();`,
 describe('puppeteer', () => {
   tests.forEach(t => {
     it(t.title, async () => {
-      const url = 'file://' + __dirname + '/loadFromQS.html?' + encodeURIComponent(t.js);
+      const url = 'file://' + __dirname + '/pages/loadFromQS.html?' + encodeURIComponent(t.js);
       const puppeteer = proxyquire('../puppeteer.js', {
         'node-fetch': mockFetchIdlData(t.idl)
       });
-      const res = await puppeteer.runWithProxy(url, 'shortname', process.env.DEBUG);
-      assert.deepEqual(res, t.results);
+      const {results} = await puppeteer.runWithProxy(url, 'shortname', process.env.DEBUG);
+      assert.deepEqual(results, t.results);
     });
   });
 });

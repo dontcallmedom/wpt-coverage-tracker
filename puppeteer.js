@@ -88,26 +88,28 @@ async function runOnLinkedPages(url, shortname, debug =false) {
   let resultList = [];
   for (let u of urls) {
     resultList.push(
-      await runWithProxy(u, shortname, debug, true)
-        .catch(e => { console.error("Error processing " + u + ": " + e); return {};})
+      {...(await runWithProxy(u, shortname, debug, true)
+           .catch(e => { return {results:{}, errors:["Error processing " + u + ": " + e], url: u};})), url: u}
     )
   }
-  const results = resultList.reduce((acc, res) => {
-    Object.entries(res).forEach(([k, v]) => {
-      if (!acc[k]) acc[k] = {};
-      Object.entries(v).forEach(([member, count]) => {
-        if (!acc[k][member]) acc[k][member] = 0;
-        acc[k][member] += res[k][member];
+  const {results, errors} = resultList.reduce((acc, {results, errors, url}) => {
+    acc.errors = acc.errors.concat(errors.map(e => e + " in " + url));
+    if (results) {
+      Object.entries(results).forEach(([k, v]) => {
+        if (!acc.results[k]) acc.results[k] = {};
+        Object.entries(v).forEach(([member, count]) => {
+          if (!acc.results[k][member]) acc.results[k][member] = 0;
+          acc.results[k][member] += results[k][member];
+        });
       });
-    });
+    }
     return acc;
-  });
+  }, {results:{}, errors:[]});
   await browser.close();
-  return results;
+  return {results, errors};
 }
 
 async function runWithProxy(url, shortname, debug = false, noclose = false) {
-  let results = {};
   const {idlparsed} = await fetch(`https://w3c.github.io/webref/ed/idlparsed/${shortname}.json`).then(r => r.json());
 
   const page = await getNewPage(debug);
@@ -120,14 +122,15 @@ async function runWithProxy(url, shortname, debug = false, noclose = false) {
   page.evaluateOnNewDocument(proxyFile);
   await page.goto(url);
   await page.waitForFunction('___puppeteerdone === true');
-  results = await page.evaluate('___tracker');
+  const results = await page.evaluate('___tracker');
+  const errors = await page.evaluate('___errors');
   if (!debug) {
     await page.close();
   }
   if (!debug && !noclose) {
     await browser.close();
   }
-  return await results;
+  return await {results,errors};
 }
 
 module.exports = {runWithProxy, runOnLinkedPages};
@@ -139,8 +142,9 @@ if (require.main === module) {
   } else {
     action = runWithProxy (process.argv[2], process.argv[3], !!process.env.DEBUG)
   }
-  action.then(results => {
+  action.then(({results, errors}) => {
     console.log(results);
+    console.error(errors);
   })
     .catch(err => {
       console.error(err);
