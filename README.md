@@ -8,10 +8,13 @@ It reports its results as a JSON structure where each of the IDL item is matched
 
 The tool is based on Puppeteer and JS proxies.
 
+# Install
+Run `npm install` in the directory.
+
 # Usage
 
 ```sh
-node [-l] puppeteer.js <url> <shortname>
+node puppeteer.js  [-l] <url> <shortname>
 ```
 
 
