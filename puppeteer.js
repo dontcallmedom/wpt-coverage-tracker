@@ -8,7 +8,11 @@ let browser;
 
 async function getNewPage(debug) {
   if (!browser) {
-    browser = await puppeteer.launch({ignoreHTTPSErrors: true, acceptInsecureCerts: true, executablePath: '/usr/bin/google-chrome-stable', headless: !debug });
+    browser = await puppeteer.launch({ignoreHTTPSErrors: true, acceptInsecureCerts: true, executablePath: '/usr/bin/chromium-browser', headless: !debug });
+    browser.on('targetcreated', async (target) => {
+      const page = await target.page();
+      intercept(page, ['*'], transform);
+    });
   }
   return await browser.newPage();
 }
@@ -104,11 +108,6 @@ async function runWithProxy(url, shortname, debug = false, noclose = false) {
   const {idlparsed} = await fetch(`https://w3c.github.io/webref/ed/idlparsed/${shortname}.json`).then(r => r.json());
 
   const page = await getNewPage(debug);
-  intercept(page, ['*'], transform);
-  browser.on('targetcreated', async (target) => {
-    const page = await target.page();
-    intercept(page, ['*'], transform);
-  });
   page.on('console', msg => {
     console.error(msg.args().map(o => JSON.stringify(o._remoteObject.value, null, 2)).join('\n'));
   });
