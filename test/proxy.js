@@ -107,6 +107,24 @@ pc.close();`,
     results: {
       "RTCPeerConnection": { "_constructor": 1, "onconnectionstatechange": 1, "close": 1 },
     }
+  },
+  {
+    title: 'tracks additions to interfaces made via inheritance',
+    idl: `interface BlobEvent : Event {
+  constructor(DOMString type, BlobEventInit eventInitDict);
+  [SameObject] readonly attribute Blob data;
+};`,
+    js: `  var blob = new Blob();
+  var event = new BlobEvent("type", { data: blob });
+  event.type;
+  event.data;
+`,
+    results: {
+      BlobEvent: {
+        _constructor: 1,
+        data: 1
+      }
+    }
   }
   // TODO: enums
   // TODO: partial interfaces
