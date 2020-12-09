@@ -83,12 +83,14 @@ async function runOnLinkedPages(url, shortname, debug =false) {
   const urls = (await page.evaluate('[...document.querySelectorAll("a[href]")].map(a => a.href)'))
         // make this configurable?
         .filter(u => u.endsWith('.html'));
-  const resultList = await Promise.all(
-    urls.map(u =>
-             runWithProxy(u, shortname, debug, true)
-             .catch(e => { console.error("Error processing " + u + ": " + e); return {};})
-            )
-  );
+  page.close();
+  let resultList = [];
+  for (let u of urls) {
+    resultList.push(
+      await runWithProxy(u, shortname, debug, true)
+        .catch(e => { console.error("Error processing " + u + ": " + e); return {};})
+    )
+  }
   const results = resultList.reduce((acc, res) => {
     Object.entries(res).forEach(([k, v]) => {
       if (!acc[k]) acc[k] = {};
@@ -118,6 +120,9 @@ async function runWithProxy(url, shortname, debug = false, noclose = false) {
   await page.goto(url);
   await page.waitForFunction('___puppeteerdone === true');
   results = await page.evaluate('___tracker');
+  if (!debug) {
+    await page.close();
+  }
   if (!debug && !noclose) {
     await browser.close();
   }
