@@ -20,7 +20,7 @@ node puppeteer.js  [-l] <url> <shortname>
 
 Run on a single page
 ```sh
-node puppeteer.js https://wpt.live/mediacapture-record/ mediastream-recording
+node puppeteer.js https://wpt.live/webrtc/idlharness.https.window.html webrtc
 ```
 
 Run on all linked HTML pages
