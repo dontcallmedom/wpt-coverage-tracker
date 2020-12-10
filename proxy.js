@@ -59,7 +59,7 @@ const logger = name => {
 
   function walkIdlTypes(op) {
     return function self(value, idlType) {
-      if (!idlType || !value) {
+      if (!idlType || value === undefined) {
         return value;
       }
       // TODO: maps, records, unions, typedefs
@@ -130,9 +130,11 @@ const logger = name => {
     const wrapped = walkIdlTypes((obj, idlName) => {
       if (obj && obj.___unwrap) return obj;
       // we assume this is an enum
-      if (typeof obj === "string" && idlName) {
+      if (typeof obj === "string") {
+        if (idlName) {
         // FIXME
-        ___tracker[idlName][obj] += 1;
+          ___tracker[idlName][obj] += 1;
+        }
         return obj;
       }
       const proxy = new Proxy(obj, logger(idlName));
