@@ -8,7 +8,7 @@ let browser;
 
 async function getNewPage(debug) {
   if (!browser) {
-    browser = await puppeteer.launch({ignoreHTTPSErrors: true, acceptInsecureCerts: true, executablePath: '/usr/bin/chromium-browser', headless: !debug });
+    browser = await puppeteer.launch({ignoreHTTPSErrors: true, acceptInsecureCerts: true, headless: !debug });
     browser.on('targetcreated', async (target) => {
       const page = await target.page();
       intercept(page, ['*'], transform);
