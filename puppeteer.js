@@ -98,8 +98,10 @@ async function runOnLinkedPages(url, shortname, debug =false) {
       Object.entries(results).forEach(([k, v]) => {
         if (!acc.results[k]) acc.results[k] = {};
         Object.entries(v).forEach(([member, count]) => {
-          if (!acc.results[k][member]) acc.results[k][member] = 0;
-          acc.results[k][member] += results[k][member];
+          if (count) {
+            if (!acc.results[k][member]) acc.results[k][member] = {};
+            acc.results[k][member][url] = count;
+          }
         });
       });
     }

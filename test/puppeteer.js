@@ -30,10 +30,12 @@ describe('puppeteer', () => {
       'node-fetch': mockIdlFetch(shortname, 'interface RTCPeerConnection { constructor();};')
     });
     const {results, errors} = (await puppeteer.runOnLinkedPages(url, shortname));
+    const constructorRes = {};
+    constructorRes[`file://${__dirname}/pages/test.window.html`] = 1;
     assert.deepEqual(results, {
       // comes from pages/test.window.html (linked from links.html)
       RTCPeerConnection: {
-        _constructor: 1
+        _constructor:  constructorRes
       }
     }
                     );
