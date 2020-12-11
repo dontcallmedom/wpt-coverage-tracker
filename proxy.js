@@ -59,7 +59,7 @@ const logger = name => {
 
   function walkIdlTypes(op) {
     return function self(value, idlType) {
-      if (!idlType || value === undefined) {
+      if (!idlType || value === undefined || value === null) {
         return value;
       }
       // TODO: maps, records, unions, typedefs
@@ -84,7 +84,7 @@ const logger = name => {
             return field ? [k, self(v, field.idlType)] : [k,v];
           })), idlName);
         } else if (idlData.idlNames[idlName].type === "enum") {
-          op(value, idlName);
+          return op(value, idlName);
         } else {
           return value;
         }
