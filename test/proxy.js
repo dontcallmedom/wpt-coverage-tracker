@@ -18,6 +18,14 @@ const baseIdl = `interface RTCPeerConnection : EventTarget {
   constructor(optional RTCConfiguration config);
 };`
 
+// This allows to write tests to check that the wrapped code
+// gives results as expected
+const baseJS = `
+function ___assert(pred, msg) {
+  if (!pred) ___errors.push(msg);
+}
+`;
+
 const addToBaseInterface = l => baseIdl.replace('};', l + '\n' + '};');
 
 const tests = [
@@ -132,8 +140,11 @@ pc.close();`,
 enum RTCSignalingState {
   "stable"};
 `,
-    js: `const pc = new RTCPeerConnection();
-pc.signalingState;`,
+    js: `
+const pc = new RTCPeerConnection();
+const state = pc.signalingState;
+___assert(state === 'stable', "unexpected value for signalingState: " + state);
+`,
     results: {
       RTCPeerConnection: {
         _constructor: 1,
@@ -152,7 +163,7 @@ pc.signalingState;`,
 describe('puppeteer', () => {
   tests.forEach(t => {
     it(t.title, async () => {
-      const url = 'file://' + __dirname + '/pages/loadFromQS.html?' + encodeURIComponent(t.js);
+      const url = 'file://' + __dirname + '/pages/loadFromQS.html?' + encodeURIComponent(baseJS + t.js);
       const puppeteer = proxyquire('../puppeteer.js', {
         'node-fetch': mockFetchIdlData(t.idl)
       });
