@@ -68,6 +68,26 @@ pc.getConfiguration().iceCandidatePoolSize
     }
   },
   {
+    title: 'tracks interface as a return type of interface method',
+    idl: addToBaseInterface(`  RTCDataChannel createDataChannel(USVString label); `) + `
+interface RTCDataChannel {
+  readonly attribute USVString label;
+  undefined send(USVString data);
+};`,
+    js: `
+const pc = new RTCPeerConnection();
+const dc = pc.createDataChannel("test");
+const label = dc.label;
+dc.send('message');
+___assert(label === "test", "Unexpected value for datachannel label: " + label);
+
+`,
+    results: {
+      "RTCPeerConnection": { "_constructor": 1, "createDataChannel": 1 },
+      "RTCDataChannel": {"label": 1, "send": 1}
+    }
+  },
+  {
     title: 'tracks dictionary with trackable fields as a return type of interface method',
     idl: addToBaseInterface(`  RTCConfiguration getConfiguration(); `) + `
 dictionary RTCConfiguration { sequence<RTCIceServer> iceServers;};
@@ -101,6 +121,19 @@ pc.addTransceiver('audio', {streams: [stream]});
       "RTCPeerConnection": { "_constructor": 1, "addTransceiver": 1 },
       "RTCRtpTransceiver": {},
       "RTCRtpTransceiverInit": {"streams": 1}
+    }
+  },
+  {
+    title: 'tracks event handlers attributes',
+    idl: addToBaseInterface(`attribute EventHandler onconnectionstatechange;
+  undefined close();
+`),
+    js: `
+const pc = new RTCPeerConnection();
+pc.onconnectionstatechange = () => {};
+pc.close();`,
+    results: {
+      "RTCPeerConnection": { "_constructor": 1, "onconnectionstatechange": 1, "close": 1 },
     }
   },
   {

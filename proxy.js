@@ -188,7 +188,7 @@ const logger = name => {
         }
         // FIXME: this shouldn't be possible yet it is
         if (target && !target.___unwrap) log(propKey);
-        if (propKey.startsWith("on")) { // TODO: only if type is EventHandler?
+        if (idlProp.idlType.idlType === "EventHandler" && propKey.startsWith("on")) {
           target.addEventListener(propKey.slice(2), value);
           return true;
         }
